@@ -1,19 +1,32 @@
+#!/usr/bin/env python3
 import os
+import sys
 import time
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 # --------------------------
 # CONFIGURATION FROM ENV VARS
 # --------------------------
 URL = os.getenv("PRODUCT_URL")
 KEYWORD = os.getenv("PRODUCT_KEYWORD", "Add to cart")  # Default if not set
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "300"))  # Default: 5 min
 PUSHOVER_USER_KEY = os.getenv("PUSHOVER_USER_KEY")
 PUSHOVER_API_TOKEN = os.getenv("PUSHOVER_API_TOKEN")
+LOG_FILE = os.getenv("LOG_FILE", "/tmp/product_monitor.log")
 
 if not URL or not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
-    raise ValueError("Missing required environment variables. Please set PRODUCT_URL, PUSHOVER_USER_KEY, and PUSHOVER_API_TOKEN.")
+    print("Missing required environment variables: PRODUCT_URL, PUSHOVER_USER_KEY, PUSHOVER_API_TOKEN")
+    sys.exit(1)
+
+# --------------------------
+# LOGGING
+# --------------------------
+def log(message):
+    timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{timestamp} {message}\n")
+    print(f"{timestamp} {message}")
 
 # --------------------------
 # NOTIFICATION FUNCTION
@@ -32,9 +45,9 @@ def send_pushover(message):
             }
         )
         if response.status_code != 200:
-            print(f"Error sending Pushover notification: {response.text}")
+            log(f"Error sending Pushover notification: {response.text}")
     except Exception as e:
-        print(f"Notification error: {e}")
+        log(f"Notification error: {e}")
 
 # --------------------------
 # MAIN CHECK FUNCTION
@@ -46,23 +59,15 @@ def check_product():
         soup = BeautifulSoup(response.text, "html.parser")
 
         if KEYWORD.lower() in soup.get_text().lower():
-            print(f"[ALERT] Product available at {URL}")
+            log(f"[ALERT] Product available at {URL}")
             send_pushover(f"The product is now available!\n{URL}")
-            return True
         else:
-            print(f"[{time.strftime('%H:%M:%S')}] Not yet available...")
-            return False
-
+            log("Not yet available.")
     except Exception as e:
-        print(f"Error checking product: {e}")
-        return False
+        log(f"Error checking product: {e}")
 
 # --------------------------
-# LOOP
+# MAIN EXECUTION
 # --------------------------
 if __name__ == "__main__":
-    print("Starting product monitor...")
-    while True:
-        if check_product():
-            break  # Stop if found (remove to keep checking)
-        time.sleep(CHECK_INTERVAL)
+    check_product()

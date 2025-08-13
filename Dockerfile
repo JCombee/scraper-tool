@@ -8,4 +8,4 @@ COPY . /app
 
 RUN chmod +x scraper_tool.py
 
-CMD ["python", "-m", "scraper_tool"]
+CMD ["tail", "-f", "/tmp/product_monitor.log"]

@@ -95,7 +95,10 @@ def check_product():
             send_pushover(f"The product is now available!\n{URL}")
         else:
             log("Not yet available.")
-            log(soup.get_text().lower())
+            # Strip empty lines from the webpage content
+            page_text = soup.get_text().lower()
+            cleaned_text = '\n'.join(line for line in page_text.splitlines() if line.strip())
+            log(cleaned_text)
     except Exception as e:
         log(f"Error checking product: {e}")
 

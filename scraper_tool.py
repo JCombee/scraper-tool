@@ -95,6 +95,7 @@ def check_product():
             send_pushover(f"The product is now available!\n{URL}")
         else:
             log("Not yet available.")
+            log(soup.get_text().lower())
     except Exception as e:
         log(f"Error checking product: {e}")
 

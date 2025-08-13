@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import json
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -11,6 +12,8 @@ from datetime import datetime
 # --------------------------
 URL = os.getenv("PRODUCT_URL")
 KEYWORD = os.getenv("PRODUCT_KEYWORD", "Add to cart")  # Default if not set
+REQUEST_METHOD = os.getenv("REQUEST_METHOD", "GET").upper()  # Default to GET
+REQUEST_PAYLOAD = os.getenv("REQUEST_PAYLOAD")  # JSON string for POST data
 PUSHOVER_USER_KEY = os.getenv("PUSHOVER_USER_KEY")
 PUSHOVER_API_TOKEN = os.getenv("PUSHOVER_API_TOKEN")
 LOG_FILE = os.getenv("LOG_FILE", "/tmp/product_monitor.log")
@@ -54,7 +57,36 @@ def send_pushover(message):
 # --------------------------
 def check_product():
     try:
-        response = requests.get(URL, timeout=10)
+        # Prepare request parameters
+        request_kwargs = {
+            "url": URL,
+            "timeout": 10
+        }
+
+        # Handle POST requests with payload
+        if REQUEST_METHOD == "POST":
+            if REQUEST_PAYLOAD:
+                try:
+                    # Try to parse as JSON first
+                    payload = json.loads(REQUEST_PAYLOAD)
+                    request_kwargs["json"] = payload
+                    log(f"Using JSON payload: {REQUEST_PAYLOAD}")
+                except json.JSONDecodeError:
+                    # If not valid JSON, treat as form data
+                    # Parse simple key=value&key2=value2 format
+                    payload = {}
+                    for pair in REQUEST_PAYLOAD.split('&'):
+                        if '=' in pair:
+                            key, value = pair.split('=', 1)
+                            payload[key] = value
+                    request_kwargs["data"] = payload
+                    log(f"Using form data payload: {payload}")
+
+            response = requests.post(**request_kwargs)
+        else:
+            # Default to GET request
+            response = requests.get(**request_kwargs)
+
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
